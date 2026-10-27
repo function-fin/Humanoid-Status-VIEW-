@@ -106,6 +106,7 @@ local function criarESPHUD()
     local hudGui = Instance.new("ScreenGui")
     hudGui.Name = "SpwnCubESP_HUD"
     hudGui.ResetOnSpawn = false
+    hudGui.IgnoreGuiInset = true
     hudGui.Parent = CoreGui
     
     local hud = Instance.new("Frame")
@@ -463,8 +464,21 @@ if CoreGui:GetAttribute("GlobalClickActive") then task.spawn(gerenciarClick1e30)
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "HumanoidStatusGUI"
 ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = CoreGui
+
+-- // CONFIGURAÇÃO DE UISCALE SOLICITADA
+local UiScale = Instance.new("UIScale", ScreenGui)
+local function UpdateUIScale()
+    if not UserInputService.TouchEnabled then
+        UiScale.Scale = 1.9 -- 90% maior no PC
+    else
+        UiScale.Scale = 1.0 -- Tamanho padrão no mobile
+    end
+end
+UpdateUIScale()
+UserInputService:GetPropertyChangedSignal("TouchEnabled"):Connect(UpdateUIScale)
 
 local function create(className, properties)
     local inst = Instance.new(className)
@@ -512,7 +526,8 @@ local BottomBar = create("Frame", {Name = "BottomBar", Size = UDim2.new(1, 0, 0,
 local BtnClose = create("TextButton", {Name = "BtnClose", Size = UDim2.fromOffset(130, 30), Position = UDim2.new(0.5, -65, 0.5, -15), BackgroundColor3 = Color3.fromRGB(38, 38, 38), BorderSizePixel = 0, Text = "Close", TextColor3 = Color3.fromRGB(255, 255, 255), Font = Enum.Font.SourceSansBold, TextSize = 15, ZIndex = 4, Parent = BottomBar})
 create("UICorner", {CornerRadius = UDim.new(0, 5), Parent = BtnClose})
 
-local OpenCloseIcon = create("ImageButton", {Name = "OpenCloseIcon", Size = UDim2.fromOffset(70, 70), Position = UDim2.fromOffset(125, 4), BackgroundTransparency = 1, BorderSizePixel = 0, Image = ICON_BUTTON_ID, ZIndex = 12, Active = true, Parent = ScreenGui})
+-- Botão externo de abrir/fechar (68x68)
+local OpenCloseIcon = create("ImageButton", {Name = "OpenCloseIcon", Size = UDim2.fromOffset(68, 68), Position = UDim2.fromOffset(125, 4), BackgroundTransparency = 1, BorderSizePixel = 0, Image = ICON_BUTTON_ID, ZIndex = 12, Active = true, Parent = ScreenGui})
 
 habilitarArrasto(MainFrameBorder)
 
