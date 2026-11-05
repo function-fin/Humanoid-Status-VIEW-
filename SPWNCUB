@@ -468,6 +468,11 @@ ScreenGui.IgnoreGuiInset = true
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = CoreGui
 
+-- [SPWN] Atributos de identificação persistente
+ScreenGui:SetAttribute("SPWN_ManagedScriptID", "HumanoidStatusScript")
+ScreenGui:SetAttribute("SPWN_ManagedScriptName", "Humanoid Status Panel")
+ScreenGui:SetAttribute("SPWN_ManagedScriptCategory", "Humanoid Status Panel")
+
 -- // CONFIGURAÇÃO DE UISCALE SOLICITADA
 local UiScale = Instance.new("UIScale", ScreenGui)
 local function UpdateUIScale()
@@ -527,7 +532,8 @@ local BtnClose = create("TextButton", {Name = "BtnClose", Size = UDim2.fromOffse
 create("UICorner", {CornerRadius = UDim.new(0, 5), Parent = BtnClose})
 
 -- Botão externo de abrir/fechar (68x68)
-local OpenCloseIcon = create("ImageButton", {Name = "OpenCloseIcon", Size = UDim2.fromOffset(68, 68), Position = UDim2.fromOffset(125, 4), BackgroundTransparency = 1, BorderSizePixel = 0, Image = ICON_BUTTON_ID, ZIndex = 12, Active = true, Parent = ScreenGui})
+-- [SPWN] Renomeado para OpenToggleButton (o Manager atua nele)
+local OpenCloseIcon = create("ImageButton", {Name = "OpenToggleButton", Size = UDim2.fromOffset(68, 68), Position = UDim2.fromOffset(125, 4), BackgroundTransparency = 1, BorderSizePixel = 0, Image = ICON_BUTTON_ID, ZIndex = 12, Active = true, Parent = ScreenGui})
 
 habilitarArrasto(MainFrameBorder)
 
@@ -603,3 +609,61 @@ BtnESP.MouseButton1Click:Connect(function()
 end)
 
 BtnClose.MouseButton1Click:Connect(function() MainFrameBorder.Visible = false end)
+
+--------------------------------------------------
+-- [SPWN] ADAPTADOR PERSISTENTE
+--------------------------------------------------
+task.spawn(function()
+    local scriptId = "HumanoidStatusScript"
+    local scriptConfig = {
+        Name = "Humanoid Status Panel",
+        Category = "Humanoid Status Panel",
+        GuiObject = ScreenGui,
+        OnDestroy = function()
+            -- [SPWN] Equivalente ao duplo clique no OpenCloseIcon original:
+            -- desliga todos os atributos globais e remove HUD do ESP
+            CoreGui:SetAttribute("GlobalAntiSitActive", false)
+            CoreGui:SetAttribute("GlobalClickActive", false)
+            CoreGui:SetAttribute("GlobalAntiLagActive", false)
+            CoreGui:SetAttribute("GlobalAntiCollisionActive", false)
+            CoreGui:SetAttribute("GlobalFreezeActive", false)
+            CoreGui:SetAttribute("GlobalNoclipActive", false)
+            CoreGui:SetAttribute("GlobalESPActive", false)
+            if espHudFrame then
+                pcall(function() espHudFrame:Destroy() end)
+                espHudFrame = nil
+            end
+        end
+    }
+
+    -- Garante a persistência global na memória
+    _G.ScriptManagerQueue = _G.ScriptManagerQueue or {}
+    _G.RegisteredScriptDatabase = _G.RegisteredScriptDatabase or {}
+
+    -- [SPWN] Lê visibilidade persistida em vez de hardcoded true
+    local persistedVis = ScreenGui:GetAttribute("SPWN_ManagedVisibility")
+
+    _G.RegisteredScriptDatabase[scriptId] = {
+        Name = scriptConfig.Name,
+        Category = scriptConfig.Category,
+        GuiObject = scriptConfig.GuiObject,
+        IsVisible = (persistedVis == nil) and true or persistedVis,
+        OnDestroy = scriptConfig.OnDestroy
+    }
+
+    local exists = false
+    for _, item in ipairs(_G.ScriptManagerQueue) do
+        if item.id == scriptId then
+            exists = true
+            item.config = scriptConfig
+            break
+        end
+    end
+    if not exists then
+        table.insert(_G.ScriptManagerQueue, {id = scriptId, config = scriptConfig})
+    end
+
+    if _G.ScriptManager and type(_G.ScriptManager.RegisterScript) == "function" then
+        _G.ScriptManager.RegisterScript(scriptId, scriptConfig)
+    end
+end)
