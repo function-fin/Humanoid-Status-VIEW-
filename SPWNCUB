@@ -531,12 +531,12 @@ local BottomBar = create("Frame", {Name = "BottomBar", Size = UDim2.new(1, 0, 0,
 local BtnClose = create("TextButton", {Name = "BtnClose", Size = UDim2.fromOffset(130, 30), Position = UDim2.new(0.5, -65, 0.5, -15), BackgroundColor3 = Color3.fromRGB(38, 38, 38), BorderSizePixel = 0, Text = "Close", TextColor3 = Color3.fromRGB(255, 255, 255), Font = Enum.Font.SourceSansBold, TextSize = 15, ZIndex = 4, Parent = BottomBar})
 create("UICorner", {CornerRadius = UDim.new(0, 5), Parent = BtnClose})
 
--- Botão externo de abrir/fechar (70x70) - Centro Rel: -255, -147
--- [SPWN] Renomeado para OpenToggleButton (o Manager atua nele)
+-- Botão externo de abrir/fechar (70x70) — posicionado no centro relativo solicitado
+-- Centro Rel: -267, -153 | Tam: 70, 70 | AnchorPoint: (0.5, 0.5)
 local OpenCloseIcon = create("ImageButton", {
     Name = "OpenToggleButton",
     Size = UDim2.fromOffset(70, 70),
-    Position = UDim2.new(0.5, -255, 0.5, -147),
+    Position = UDim2.new(0.5, -267, 0.5, -153),
     AnchorPoint = Vector2.new(0.5, 0.5),
     BackgroundTransparency = 1,
     BorderSizePixel = 0,
