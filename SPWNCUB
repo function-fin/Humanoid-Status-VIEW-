@@ -18,9 +18,9 @@ if not CoreGui:GetAttribute("AntiSitInitialized") then
     CoreGui:SetAttribute("GlobalESPActive", false)
 end
 
--- Limpa interfaces visuais antigas se existirem
 if CoreGui:FindFirstChild("HumanoidStatusGUI") then CoreGui.HumanoidStatusGUI:Destroy() end
 if CoreGui:FindFirstChild("SpwnCubESP_HUD") then CoreGui.SpwnCubESP_HUD:Destroy() end
+if CoreGui:FindFirstChild("OpenToggleGui") then CoreGui.OpenToggleGui:Destroy() end
 
 local function habilitarArrasto(frame)
     local dragging, dragInput, dragStart, startPos
@@ -461,6 +461,9 @@ end
 CoreGui:GetAttributeChangedSignal("GlobalClickActive"):Connect(gerenciarClick1e30)
 if CoreGui:GetAttribute("GlobalClickActive") then task.spawn(gerenciarClick1e30) end
 
+-- ============================================================
+-- PAINEL PRINCIPAL (afetado pelo UIScale)
+-- ============================================================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "HumanoidStatusGUI"
 ScreenGui.ResetOnSpawn = false
@@ -468,18 +471,16 @@ ScreenGui.IgnoreGuiInset = true
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = CoreGui
 
--- [SPWN] Atributos de identificação persistente
 ScreenGui:SetAttribute("SPWN_ManagedScriptID", "HumanoidStatusScript")
 ScreenGui:SetAttribute("SPWN_ManagedScriptName", "Humanoid Status Panel")
 ScreenGui:SetAttribute("SPWN_ManagedScriptCategory", "Humanoid Status Panel")
 
--- // CONFIGURAÇÃO DE UISCALE SOLICITADA
 local UiScale = Instance.new("UIScale", ScreenGui)
 local function UpdateUIScale()
     if not UserInputService.TouchEnabled then
-        UiScale.Scale = 1.9 -- 90% maior no PC
+        UiScale.Scale = 1.9
     else
-        UiScale.Scale = 1.0 -- Tamanho padrão no mobile
+        UiScale.Scale = 1.0
     end
 end
 UpdateUIScale()
@@ -494,7 +495,6 @@ end
 local MainFrameBorder = create("Frame", {Name = "MainFrameBorder", Size = UDim2.fromOffset(265, 310), Position = UDim2.new(0.5, -132, 0.5, -155), BackgroundColor3 = Color3.fromRGB(255, 255, 255), BorderSizePixel = 0, Active = true, Parent = ScreenGui})
 local MainFrame = create("Frame", {Name = "MainFrame", Size = UDim2.new(1, -6, 1, -6), Position = UDim2.fromOffset(3, 3), BackgroundColor3 = Color3.fromRGB(0, 0, 0), BorderSizePixel = 0, ZIndex = 2, Parent = MainFrameBorder})
 
--- Título mantido conforme solicitado
 create("TextLabel", {Name = "TitleLabel", Size = UDim2.new(1, 0, 0, 35), Position = UDim2.fromOffset(0, 6), BackgroundTransparency = 1, Text = "VIEW STATUS HUMANOID", TextColor3 = Color3.fromRGB(255, 255, 255), Font = Enum.Font.Arcade, TextSize = 22, ZIndex = 3, Parent = MainFrame})
 
 create("ImageLabel", {Name = "AvatarImage", Size = UDim2.fromOffset(105, 175), Position = UDim2.fromOffset(140, 55), BackgroundTransparency = 1, Image = TEXTURE_AVATAR_ID, ZIndex = 3, Parent = MainFrame})
@@ -531,19 +531,28 @@ local BottomBar = create("Frame", {Name = "BottomBar", Size = UDim2.new(1, 0, 0,
 local BtnClose = create("TextButton", {Name = "BtnClose", Size = UDim2.fromOffset(130, 30), Position = UDim2.new(0.5, -65, 0.5, -15), BackgroundColor3 = Color3.fromRGB(38, 38, 38), BorderSizePixel = 0, Text = "Close", TextColor3 = Color3.fromRGB(255, 255, 255), Font = Enum.Font.SourceSansBold, TextSize = 15, ZIndex = 4, Parent = BottomBar})
 create("UICorner", {CornerRadius = UDim.new(0, 5), Parent = BtnClose})
 
--- Botão externo de abrir/fechar (70x70) — posicionado no centro relativo solicitado
--- Centro Rel: -267, -153 | Tam: 70, 70 | AnchorPoint: (0.5, 0.5)
+-- ============================================================
+-- BOTÃO EXTERNO EM SCREENGUI SEPARADO (fora do UIScale)
+-- Centro Abs: 135, 47 | Tam: 70, 70 | AnchorPoint: (0.5, 0.5)
+-- ============================================================
+local iconGui = Instance.new("ScreenGui")
+iconGui.Name = "OpenToggleGui"
+iconGui.ResetOnSpawn = false
+iconGui.IgnoreGuiInset = false
+iconGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+iconGui.Parent = CoreGui
+
 local OpenCloseIcon = create("ImageButton", {
     Name = "OpenToggleButton",
     Size = UDim2.fromOffset(70, 70),
-    Position = UDim2.new(0.5, -267, 0.5, -153),
     AnchorPoint = Vector2.new(0.5, 0.5),
+    Position = UDim2.fromOffset(135, 47),
     BackgroundTransparency = 1,
     BorderSizePixel = 0,
     Image = ICON_BUTTON_ID,
-    ZIndex = 12,
+    ZIndex = 100,
     Active = true,
-    Parent = ScreenGui
+    Parent = iconGui
 })
 
 habilitarArrasto(MainFrameBorder)
@@ -555,7 +564,8 @@ OpenCloseIcon.InputBegan:Connect(function(input)
         draggingIcon, dragStartPos, startIconPos = true, input.Position, OpenCloseIcon.Position
         local currentTime = tick()
         if (currentTime - lastClickTime) < 0.35 then
-            ScreenGui:Destroy() 
+            ScreenGui:Destroy()
+            iconGui:Destroy()
             removerESPHUD()
             return
         end
@@ -631,8 +641,6 @@ task.spawn(function()
         Category = "Humanoid Status Panel",
         GuiObject = ScreenGui,
         OnDestroy = function()
-            -- [SPWN] Equivalente ao duplo clique no OpenCloseIcon original:
-            -- desliga todos os atributos globais e remove HUD do ESP
             CoreGui:SetAttribute("GlobalAntiSitActive", false)
             CoreGui:SetAttribute("GlobalClickActive", false)
             CoreGui:SetAttribute("GlobalAntiLagActive", false)
@@ -644,14 +652,16 @@ task.spawn(function()
                 pcall(function() espHudFrame:Destroy() end)
                 espHudFrame = nil
             end
+            if iconGui then
+                pcall(function() iconGui:Destroy() end)
+                iconGui = nil
+            end
         end
     }
 
-    -- Garante a persistência global na memória
     _G.ScriptManagerQueue = _G.ScriptManagerQueue or {}
     _G.RegisteredScriptDatabase = _G.RegisteredScriptDatabase or {}
 
-    -- [SPWN] Lê visibilidade persistida em vez de hardcoded true
     local persistedVis = ScreenGui:GetAttribute("SPWN_ManagedVisibility")
 
     _G.RegisteredScriptDatabase[scriptId] = {
