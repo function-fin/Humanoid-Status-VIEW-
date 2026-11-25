@@ -96,7 +96,7 @@ RunService.Stepped:Connect(function()
 end)
 
 -- ============================================================
--- SHIFT LOCK (gerenciado por GlobalShiftLockActive, sem botão próprio)
+-- SHIFT LOCK (independente da UI/Manager; desliga apenas ao morrer)
 -- ============================================================
 local shiftLockDeathConn = nil
 
@@ -110,14 +110,6 @@ local function restaurarEstadoShiftLockNormal()
     end
 end
 
-local function desligarShiftLockAoMorrer()
-    if CoreGui:GetAttribute("GlobalShiftLockActive") then
-        CoreGui:SetAttribute("GlobalShiftLockActive", false)
-    else
-        restaurarEstadoShiftLockNormal()
-    end
-end
-
 local function conectarMorteShiftLock(char)
     if shiftLockDeathConn then
         shiftLockDeathConn:Disconnect()
@@ -126,7 +118,10 @@ local function conectarMorteShiftLock(char)
     if not char then return end
     local hum = char:FindFirstChildOfClass("Humanoid") or char:WaitForChild("Humanoid", 10)
     if hum then
-        shiftLockDeathConn = hum.Died:Connect(desligarShiftLockAoMorrer)
+        shiftLockDeathConn = hum.Died:Connect(function()
+            CoreGui:SetAttribute("GlobalShiftLockActive", false)
+            restaurarEstadoShiftLockNormal()
+        end)
     end
 end
 
@@ -431,8 +426,6 @@ OpenCloseIcon.InputBegan:Connect(function(input)
         draggingIcon, dragStartPos, startIconPos = true, input.Position, OpenCloseIcon.Position
         local currentTime = tick()
         if (currentTime - lastClickTime) < 0.35 then
-            CoreGui:SetAttribute("GlobalShiftLockActive", false)
-            restaurarEstadoShiftLockNormal()
             ScreenGui:Destroy()
             iconGui:Destroy()
             return
@@ -521,8 +514,6 @@ task.spawn(function()
             CoreGui:SetAttribute("GlobalAntiCollisionActive", false)
             CoreGui:SetAttribute("GlobalFreezeActive", false)
             CoreGui:SetAttribute("GlobalNoclipActive", false)
-            CoreGui:SetAttribute("GlobalShiftLockActive", false)
-            restaurarEstadoShiftLockNormal()
             if iconGui then
                 pcall(function() iconGui:Destroy() end)
                 iconGui = nil
