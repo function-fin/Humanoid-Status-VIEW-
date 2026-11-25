@@ -392,6 +392,7 @@ local function atualizarTextoShiftLock()
 end
 
 CoreGui:GetAttributeChangedSignal("GlobalShiftLockActive"):Connect(atualizarTextoShiftLock)
+atualizarTextoShiftLock()
 
 local BottomBar = create("Frame", {Name = "BottomBar", Size = UDim2.new(1, 0, 0, 55), Position = UDim2.new(0, 0, 1, -55), BackgroundColor3 = Color3.fromRGB(20, 20, 20), BorderSizePixel = 0, ZIndex = 3, Parent = MainFrame})
 local BtnClose = create("TextButton", {Name = "BtnClose", Size = UDim2.fromOffset(130, 30), Position = UDim2.new(0.5, -65, 0.5, -15), BackgroundColor3 = Color3.fromRGB(38, 38, 38), BorderSizePixel = 0, Text = "Close", TextColor3 = Color3.fromRGB(255, 255, 255), Font = Enum.Font.SourceSansBold, TextSize = 15, ZIndex = 4, Parent = BottomBar})
@@ -431,9 +432,7 @@ OpenCloseIcon.InputBegan:Connect(function(input)
         local currentTime = tick()
         if (currentTime - lastClickTime) < 0.35 then
             CoreGui:SetAttribute("GlobalShiftLockActive", false)
-            if type(restaurarEstadoShiftLockNormal) == "function" then
-                restaurarEstadoShiftLockNormal()
-            end
+            restaurarEstadoShiftLockNormal()
             ScreenGui:Destroy()
             iconGui:Destroy()
             return
@@ -452,7 +451,10 @@ end)
 OpenCloseIcon.InputEnded:Connect(function(input)
     if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) and draggingIcon then
         draggingIcon = false
-        if (input.Position - dragStartPos).Magnitude < 5 then MainFrameBorder.Visible = not MainFrameBorder.Visible end
+        if (input.Position - dragStartPos).Magnitude < 5 then
+            MainFrameBorder.Visible = not MainFrameBorder.Visible
+            atualizarTextoShiftLock()
+        end
     end
 end)
 
@@ -495,10 +497,13 @@ end)
 BtnShiftLock.MouseButton1Click:Connect(function()
     local novoEstado = not CoreGui:GetAttribute("GlobalShiftLockActive")
     CoreGui:SetAttribute("GlobalShiftLockActive", novoEstado)
-    BtnShiftLock.Text = novoEstado and "Shift Lock (ON)" or "Shift Lock (OFF)"
+    atualizarTextoShiftLock()
 end)
 
-BtnClose.MouseButton1Click:Connect(function() MainFrameBorder.Visible = false end)
+BtnClose.MouseButton1Click:Connect(function()
+    MainFrameBorder.Visible = false
+    atualizarTextoShiftLock()
+end)
 
 --------------------------------------------------
 -- [SPWN] ADAPTADOR PERSISTENTE
@@ -517,9 +522,7 @@ task.spawn(function()
             CoreGui:SetAttribute("GlobalFreezeActive", false)
             CoreGui:SetAttribute("GlobalNoclipActive", false)
             CoreGui:SetAttribute("GlobalShiftLockActive", false)
-            if type(restaurarEstadoShiftLockNormal) == "function" then
-                restaurarEstadoShiftLockNormal()
-            end
+            restaurarEstadoShiftLockNormal()
             if iconGui then
                 pcall(function() iconGui:Destroy() end)
                 iconGui = nil
