@@ -15,7 +15,7 @@ if not CoreGui:GetAttribute("AntiSitInitialized") then
     CoreGui:SetAttribute("GlobalAntiCollisionActive", false)
     CoreGui:SetAttribute("GlobalFreezeActive", false)
     CoreGui:SetAttribute("GlobalNoclipActive", false)
-    CoreGui:SetAttribute("GlobalESPActive", false)
+    CoreGui:SetAttribute("GlobalShiftLockActive", false)
 end
 
 if CoreGui:FindFirstChild("HumanoidStatusGUI") then CoreGui.HumanoidStatusGUI:Destroy() end
@@ -95,217 +95,74 @@ RunService.Stepped:Connect(function()
     end
 end)
 
-local espCache = {}
-local espHudFrame = nil
-local playerAddedConn = nil
-local playerRemovingConn = nil
+-- ============================================================
+-- SHIFT LOCK (gerenciado por GlobalShiftLockActive, sem botão próprio)
+-- ============================================================
+local shiftLockDeathConn = nil
 
-local function criarESPHUD()
-    if CoreGui:FindFirstChild("SpwnCubESP_HUD") then return end
-    
-    local hudGui = Instance.new("ScreenGui")
-    hudGui.Name = "SpwnCubESP_HUD"
-    hudGui.ResetOnSpawn = false
-    hudGui.IgnoreGuiInset = true
-    hudGui.Parent = CoreGui
-    
-    local hud = Instance.new("Frame")
-    hud.Name = "HUD"
-    hud.Size = UDim2.fromOffset(180, 85)
-    hud.Position = UDim2.fromOffset(15, 15)
-    hud.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    hud.BackgroundTransparency = 0.3
-    hud.BorderSizePixel = 0
-    hud.Active = true
-    hud.Parent = hudGui
-
-    habilitarArrasto(hud)
-
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(255, 255, 255)
-    stroke.Thickness = 1.5
-    stroke.Parent = hud
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 6)
-    corner.Parent = hud
-
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, -10, 0, 25)
-    title.Position = UDim2.fromOffset(10, 5)
-    title.BackgroundTransparency = 1
-    title.Text = "ESP Locator"
-    title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    title.Font = Enum.Font.SourceSansBold
-    title.TextSize = 14
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.Parent = hud
-
-    local line = Instance.new("Frame")
-    line.Size = UDim2.new(1, 0, 0, 1)
-    line.Position = UDim2.fromOffset(0, 30)
-    line.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    line.BorderSizePixel = 0
-    line.Parent = hud
-
-    local infoLabel = Instance.new("TextLabel")
-    infoLabel.Name = "InfoLabel"
-    infoLabel.Size = UDim2.new(1, -20, 1, -35)
-    infoLabel.Position = UDim2.fromOffset(10, 35)
-    infoLabel.BackgroundTransparency = 1
-    infoLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    infoLabel.Font = Enum.Font.SourceSans
-    infoLabel.TextSize = 13
-    infoLabel.TextXAlignment = Enum.TextXAlignment.Left
-    infoLabel.TextYAlignment = Enum.TextYAlignment.Top
-    infoLabel.RichText = true
-    infoLabel.Parent = hud
-
-    espHudFrame = hudGui
-end
-
-local function removerESPHUD()
-    if espHudFrame then
-        espHudFrame:Destroy()
-        espHudFrame = nil
+local function restaurarEstadoShiftLockNormal()
+    UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum.AutoRotate = true
+        hum.CameraOffset = Vector3.new(0, 0, 0)
     end
 end
 
-local function removerESP(player)
-    if espCache[player] then
-        if espCache[player].Highlight then espCache[player].Highlight:Destroy() end
-        if espCache[player].Billboard then espCache[player].Billboard:Destroy() end
-        if espCache[player].CharConn then espCache[player].CharConn:Disconnect() end
-        espCache[player] = nil
+local function desligarShiftLockAoMorrer()
+    if CoreGui:GetAttribute("GlobalShiftLockActive") then
+        CoreGui:SetAttribute("GlobalShiftLockActive", false)
+    else
+        restaurarEstadoShiftLockNormal()
     end
 end
 
-local function criarESPParaJogador(player)
-    if player == LocalPlayer then return end
-    removerESP(player)
-
-    local function aplicar(char)
-        if not char then return end
-        local root = char:WaitForChild("HumanoidRootPart", 5)
-        local head = char:WaitForChild("Head", 5)
-        if not root or not head then return end
-
-        local highlight = Instance.new("Highlight")
-        highlight.Name = "SpwnCubHighlight"
-        highlight.FillTransparency = 1
-        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-        highlight.OutlineTransparency = 0
-        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        highlight.Adornee = char
-        highlight.Parent = char
-
-        local bb = Instance.new("BillboardGui")
-        bb.Name = "SpwnCubTag"
-        bb.Adornee = head
-        bb.Size = UDim2.fromOffset(160, 60)
-        bb.StudsOffset = Vector3.new(0, 3, 0)
-        bb.AlwaysOnTop = true
-        bb.Parent = char
-
-        local container = Instance.new("Frame")
-        container.Size = UDim2.new(1, 0, 0, 38)
-        container.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        container.BackgroundTransparency = 0.2
-        container.BorderSizePixel = 0
-        container.Parent = bb
-
-        local uicorner = Instance.new("UICorner")
-        uicorner.CornerRadius = UDim.new(0, 5)
-        uicorner.Parent = container
-
-        local uistroke = Instance.new("UIStroke")
-        uistroke.Color = Color3.fromRGB(255, 255, 255)
-        uistroke.Thickness = 1.5
-        uistroke.Parent = container
-
-        local stem = Instance.new("Frame")
-        stem.Size = UDim2.new(0, 2, 0, 25)
-        stem.Position = UDim2.new(0.5, -1, 1, 0)
-        stem.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        stem.BorderSizePixel = 0
-        stem.Parent = container
-
-        local mainTxt = Instance.new("TextLabel")
-        mainTxt.Size = UDim2.new(1, 0, 0, 20)
-        mainTxt.Position = UDim2.fromOffset(0, 2)
-        mainTxt.BackgroundTransparency = 1
-        mainTxt.TextColor3 = Color3.fromRGB(255, 255, 255)
-        mainTxt.Font = Enum.Font.SourceSansBold
-        mainTxt.TextSize = 13
-        mainTxt.Text = string.upper(player.Name) .. " • 0 STUDS"
-        mainTxt.Parent = container
-
-        local subTxt = Instance.new("TextLabel")
-        subTxt.Size = UDim2.new(1, 0, 0, 16)
-        subTxt.Position = UDim2.fromOffset(0, 18)
-        subTxt.BackgroundTransparency = 1
-        subTxt.TextColor3 = Color3.fromRGB(220, 220, 220)
-        subTxt.Font = Enum.Font.SourceSans
-        subTxt.TextSize = 12
-        subTxt.Text = "DisplayName: " .. player.DisplayName
-        subTxt.Parent = container
-
-        espCache[player] = {
-            Highlight = highlight,
-            Billboard = bb,
-            MainText = mainTxt,
-            Root = root,
-            CharConn = player.CharacterAdded:Connect(aplicar)
-        }
+local function conectarMorteShiftLock(char)
+    if shiftLockDeathConn then
+        shiftLockDeathConn:Disconnect()
+        shiftLockDeathConn = nil
     end
-
-    if player.Character then aplicar(player.Character) end
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid") or char:WaitForChild("Humanoid", 10)
+    if hum then
+        shiftLockDeathConn = hum.Died:Connect(desligarShiftLockAoMorrer)
+    end
 end
 
-RunService.RenderStepped:Connect(function()
-    if not CoreGui:GetAttribute("GlobalESPActive") then return end
-    
-    local myChar = LocalPlayer.Character
-    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    
-    for player, data in pairs(espCache) do
-        if data.Root and data.Root.Parent and myRoot then
-            local dist = math.floor((myRoot.Position - data.Root.Position).Magnitude)
-            data.MainText.Text = string.upper(player.Name) .. " • " .. tostring(dist) .. " STUDS"
-        end
-    end
+if LocalPlayer.Character then
+    conectarMorteShiftLock(LocalPlayer.Character)
+end
 
-    if espHudFrame and espHudFrame:FindFirstChild("HUD") then
-        local label = espHudFrame.HUD:FindFirstChild("InfoLabel")
-        if label then
-            local count = #Players:GetPlayers()
-            label.Text = string.format("Players: %d/%d\nESP: ON", count, Players.MaxPlayers)
-        end
+LocalPlayer.CharacterAdded:Connect(function(char)
+    conectarMorteShiftLock(char)
+end)
+
+CoreGui:GetAttributeChangedSignal("GlobalShiftLockActive"):Connect(function()
+    if not CoreGui:GetAttribute("GlobalShiftLockActive") then
+        restaurarEstadoShiftLockNormal()
     end
 end)
 
-local function gerenciarEstadoESP()
-    local ativo = CoreGui:GetAttribute("GlobalESPActive")
-    if ativo then
-        criarESPHUD()
-        for _, p in ipairs(Players:GetPlayers()) do
-            criarESPParaJogador(p)
-        end
-        playerAddedConn = Players.PlayerAdded:Connect(criarESPParaJogador)
-        playerRemovingConn = Players.PlayerRemoving:Connect(removerESP)
-    else
-        if playerAddedConn then playerAddedConn:Disconnect() playerAddedConn = nil end
-        if playerRemovingConn then playerRemovingConn:Disconnect() playerRemovingConn = nil end
-        removerESPHUD()
-        for p, _ in pairs(espCache) do
-            removerESP(p)
-        end
-        espCache = {}
-    end
-end
+RunService.RenderStepped:Connect(function()
+    if not CoreGui:GetAttribute("GlobalShiftLockActive") then return end
 
-CoreGui:GetAttributeChangedSignal("GlobalESPActive"):Connect(gerenciarEstadoESP)
-if CoreGui:GetAttribute("GlobalESPActive") then task.spawn(gerenciarEstadoESP) end
+    local char = LocalPlayer.Character
+    local camera = workspace.CurrentCamera
+    if not char or not camera then return end
+
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local rootPart = char:FindFirstChild("HumanoidRootPart")
+
+    if hum and rootPart and hum.Health > 0 then
+        UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+        hum.CameraOffset = Vector3.new(0, 0, 0)
+        hum.AutoRotate = false
+
+        local _, yAngle, _ = camera.CFrame:ToEulerAnglesYXZ()
+        rootPart.CFrame = CFrame.new(rootPart.Position) * CFrame.Angles(0, yAngle, 0)
+    end
+end)
 
 local idleStartTime = nil
 
@@ -519,13 +376,22 @@ local function criarBotaoMenu(nome, texto, ordem, bloqueado)
     return btn
 end
 
-local BtnAntiLag = criarBotaoMenu("BtnAntiLag", CoreGui:GetAttribute("GlobalAntiLagActive") and "Anti Lag (ON)" or "Anti Lag (OFF)", 1, false)
-local BtnAntiSit = criarBotaoMenu("BtnAntiSit", CoreGui:GetAttribute("GlobalAntiSitActive") and "Anti Sit (On)" or "Anti Sit (Off)", 2, false)
-local BtnClick   = criarBotaoMenu("BtnClick", CoreGui:GetAttribute("GlobalClickActive") and "Click 1e30 (ON)" or "Click 1e30 (OFF)", 3, false)
-local BtnAntiCol = criarBotaoMenu("BtnAntiCol", CoreGui:GetAttribute("GlobalAntiCollisionActive") and "Anti Colisão (ON)" or "Anti Colisão (OFF)", 4, false)
-local BtnFreeze  = criarBotaoMenu("BtnFreeze", CoreGui:GetAttribute("GlobalFreezeActive") and "Freeze (ON)" or "Freeze (OFF)", 5, false)
-local BtnNoclip  = criarBotaoMenu("BtnNoclip", CoreGui:GetAttribute("GlobalNoclipActive") and "Noclip (ON)" or "Noclip (OFF)", 6, false)
-local BtnESP     = criarBotaoMenu("BtnESP", CoreGui:GetAttribute("GlobalESPActive") and "ESP (ON)" or "ESP (OFF)", 7, false)
+local BtnAntiLag   = criarBotaoMenu("BtnAntiLag", CoreGui:GetAttribute("GlobalAntiLagActive") and "Anti Lag (ON)" or "Anti Lag (OFF)", 1, false)
+local BtnAntiSit   = criarBotaoMenu("BtnAntiSit", CoreGui:GetAttribute("GlobalAntiSitActive") and "Anti Sit (On)" or "Anti Sit (Off)", 2, false)
+local BtnClick     = criarBotaoMenu("BtnClick", CoreGui:GetAttribute("GlobalClickActive") and "Click 1e30 (ON)" or "Click 1e30 (OFF)", 3, false)
+local BtnAntiCol   = criarBotaoMenu("BtnAntiCol", CoreGui:GetAttribute("GlobalAntiCollisionActive") and "Anti Colisão (ON)" or "Anti Colisão (OFF)", 4, false)
+local BtnFreeze    = criarBotaoMenu("BtnFreeze", CoreGui:GetAttribute("GlobalFreezeActive") and "Freeze (ON)" or "Freeze (OFF)", 5, false)
+local BtnNoclip    = criarBotaoMenu("BtnNoclip", CoreGui:GetAttribute("GlobalNoclipActive") and "Noclip (ON)" or "Noclip (OFF)", 6, false)
+local BtnShiftLock = criarBotaoMenu("BtnShiftLock", CoreGui:GetAttribute("GlobalShiftLockActive") and "Shift Lock (ON)" or "Shift Lock (OFF)", 7, false)
+
+local function atualizarTextoShiftLock()
+    if BtnShiftLock and BtnShiftLock.Parent then
+        local ativo = CoreGui:GetAttribute("GlobalShiftLockActive")
+        BtnShiftLock.Text = ativo and "Shift Lock (ON)" or "Shift Lock (OFF)"
+    end
+end
+
+CoreGui:GetAttributeChangedSignal("GlobalShiftLockActive"):Connect(atualizarTextoShiftLock)
 
 local BottomBar = create("Frame", {Name = "BottomBar", Size = UDim2.new(1, 0, 0, 55), Position = UDim2.new(0, 0, 1, -55), BackgroundColor3 = Color3.fromRGB(20, 20, 20), BorderSizePixel = 0, ZIndex = 3, Parent = MainFrame})
 local BtnClose = create("TextButton", {Name = "BtnClose", Size = UDim2.fromOffset(130, 30), Position = UDim2.new(0.5, -65, 0.5, -15), BackgroundColor3 = Color3.fromRGB(38, 38, 38), BorderSizePixel = 0, Text = "Close", TextColor3 = Color3.fromRGB(255, 255, 255), Font = Enum.Font.SourceSansBold, TextSize = 15, ZIndex = 4, Parent = BottomBar})
@@ -564,9 +430,12 @@ OpenCloseIcon.InputBegan:Connect(function(input)
         draggingIcon, dragStartPos, startIconPos = true, input.Position, OpenCloseIcon.Position
         local currentTime = tick()
         if (currentTime - lastClickTime) < 0.35 then
+            CoreGui:SetAttribute("GlobalShiftLockActive", false)
+            if type(restaurarEstadoShiftLockNormal) == "function" then
+                restaurarEstadoShiftLockNormal()
+            end
             ScreenGui:Destroy()
             iconGui:Destroy()
-            removerESPHUD()
             return
         end
         lastClickTime = currentTime
@@ -623,10 +492,10 @@ BtnNoclip.MouseButton1Click:Connect(function()
     BtnNoclip.Text = novoEstado and "Noclip (ON)" or "Noclip (OFF)"
 end)
 
-BtnESP.MouseButton1Click:Connect(function()
-    local novoEstado = not CoreGui:GetAttribute("GlobalESPActive")
-    CoreGui:SetAttribute("GlobalESPActive", novoEstado)
-    BtnESP.Text = novoEstado and "ESP (ON)" or "ESP (OFF)"
+BtnShiftLock.MouseButton1Click:Connect(function()
+    local novoEstado = not CoreGui:GetAttribute("GlobalShiftLockActive")
+    CoreGui:SetAttribute("GlobalShiftLockActive", novoEstado)
+    BtnShiftLock.Text = novoEstado and "Shift Lock (ON)" or "Shift Lock (OFF)"
 end)
 
 BtnClose.MouseButton1Click:Connect(function() MainFrameBorder.Visible = false end)
@@ -647,10 +516,9 @@ task.spawn(function()
             CoreGui:SetAttribute("GlobalAntiCollisionActive", false)
             CoreGui:SetAttribute("GlobalFreezeActive", false)
             CoreGui:SetAttribute("GlobalNoclipActive", false)
-            CoreGui:SetAttribute("GlobalESPActive", false)
-            if espHudFrame then
-                pcall(function() espHudFrame:Destroy() end)
-                espHudFrame = nil
+            CoreGui:SetAttribute("GlobalShiftLockActive", false)
+            if type(restaurarEstadoShiftLockNormal) == "function" then
+                restaurarEstadoShiftLockNormal()
             end
             if iconGui then
                 pcall(function() iconGui:Destroy() end)
